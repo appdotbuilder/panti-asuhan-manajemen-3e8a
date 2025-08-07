@@ -22,6 +22,7 @@ import {
 
 // Import handlers
 import { loginUser, logoutUser, getCurrentUser } from './handlers/auth';
+import { seedDefaultAdmin } from './handlers/seed_admin';
 import { createUser, getAllUsers, getUserById, deactivateUser } from './handlers/users';
 import { createChild, getAllChildren, getChildById, updateChild, getChildByUserId } from './handlers/children';
 import { createDonor, getAllDonors, getDonorById, getDonorByUserId, updateDonor } from './handlers/donors';
@@ -73,15 +74,6 @@ const appRouter = router({
   createUser: publicProcedure
     .input(createUserInputSchema)
     .mutation(({ input }) => createUser(input)),
-  createAdminUser: publicProcedure
-    .input(z.object({ 
-      email: z.string().email(),
-      password: z.string().min(1)
-    }))
-    .mutation(({ input }) => createUser({
-      ...input,
-      role: 'ADMIN'
-    })),
   getAllUsers: publicProcedure
     .query(() => getAllUsers()),
   getUserById: publicProcedure
@@ -240,6 +232,14 @@ export type AppRouter = typeof appRouter;
 
 async function start() {
   const port = process.env['SERVER_PORT'] || 2022;
+  
+  try {
+    // Attempt to seed default admin if no users exist (non-blocking)
+    await seedDefaultAdmin();
+  } catch (error) {
+    console.warn('Admin seeding failed, but continuing with server startup:', error);
+  }
+  
   const server = createHTTPServer({
     middleware: (req, res, next) => {
       cors()(req, res, next);
