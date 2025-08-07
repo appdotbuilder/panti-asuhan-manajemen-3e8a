@@ -73,6 +73,15 @@ const appRouter = router({
   createUser: publicProcedure
     .input(createUserInputSchema)
     .mutation(({ input }) => createUser(input)),
+  createAdminUser: publicProcedure
+    .input(z.object({ 
+      email: z.string().email(),
+      password: z.string().min(1)
+    }))
+    .mutation(({ input }) => createUser({
+      ...input,
+      role: 'ADMIN'
+    })),
   getAllUsers: publicProcedure
     .query(() => getAllUsers()),
   getUserById: publicProcedure

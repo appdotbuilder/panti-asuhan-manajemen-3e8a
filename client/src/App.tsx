@@ -11,6 +11,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { ChildDashboard } from './components/ChildDashboard';
 import { DonorDashboard } from './components/DonorDashboard';
 import { StaffDashboard } from './components/StaffDashboard';
+import { CreateAdminUser } from './components/CreateAdminUser';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -113,6 +114,10 @@ function App() {
   if (!authState.isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        {/* Show CreateAdminUser component at the top for easy access */}
+        <div className="absolute top-4 right-4">
+          <CreateAdminUser />
+        </div>
         <Card className="w-full max-w-md shadow-lg">
           <CardHeader className="text-center space-y-2">
             <div className="mx-auto w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
