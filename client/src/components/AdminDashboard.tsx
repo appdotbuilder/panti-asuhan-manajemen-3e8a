@@ -3,8 +3,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { trpc } from '@/utils/trpc';
-import type { User, DashboardStats } from '../../../server/src/schema';
+import type { User, DashboardStats, CreateUserInput } from '../../../server/src/schema';
 
 interface AdminDashboardProps {
   user: User;
@@ -13,6 +18,20 @@ interface AdminDashboardProps {
 export function AdminDashboard({ user }: AdminDashboardProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // User registration state
+  const [isRegistrationDialogOpen, setIsRegistrationDialogOpen] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [registrationMessage, setRegistrationMessage] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+  
+  const [userFormData, setUserFormData] = useState<CreateUserInput>({
+    email: '',
+    password: '',
+    role: 'DONOR' as const
+  });
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -29,6 +48,43 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  // Handle user registration
+  const handleUserRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsRegistering(true);
+    setRegistrationMessage(null);
+    
+    try {
+      await trpc.createUser.mutate(userFormData);
+      setRegistrationMessage({
+        type: 'success',
+        message: `Pengguna dengan email ${userFormData.email} berhasil didaftarkan sebagai ${userFormData.role}.`
+      });
+      
+      // Reset form
+      setUserFormData({
+        email: '',
+        password: '',
+        role: 'DONOR' as const
+      });
+      
+      // Close dialog after 2 seconds
+      setTimeout(() => {
+        setIsRegistrationDialogOpen(false);
+        setRegistrationMessage(null);
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Registration failed:', error);
+      setRegistrationMessage({
+        type: 'error',
+        message: 'Gagal mendaftarkan pengguna. Pastikan email belum terdaftar dan coba lagi.'
+      });
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
   const statCards = [
     {
@@ -215,6 +271,160 @@ export function AdminDashboard({ user }: AdminDashboardProps) {
         </TabsContent>
 
         <TabsContent value="management" className="space-y-4">
+          {/* User Registration Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <span>👤</span>
+                <span>Manajemen Pengguna</span>
+              </CardTitle>
+              <CardDescription>
+                Daftarkan pengguna baru ke dalam sistem panti asuhan
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Dialog open={isRegistrationDialogOpen} onOpenChange={setIsRegistrationDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-blue-600 hover:bg-blue-700">
+                    <span className="mr-2">➕</span>
+                    Daftarkan Pengguna Baru
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Registrasi Pengguna Baru</DialogTitle>
+                    <DialogDescription>
+                      Lengkapi formulir di bawah untuk mendaftarkan pengguna baru ke dalam sistem.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <form onSubmit={handleUserRegistration} className="space-y-4">
+                    {registrationMessage && (
+                      <Alert className={registrationMessage.type === 'success' ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}>
+                        <AlertDescription className={registrationMessage.type === 'success' ? 'text-green-700' : 'text-red-700'}>
+                          {registrationMessage.message}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="contoh@email.com"
+                        value={userFormData.email}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setUserFormData((prev: CreateUserInput) => ({ 
+                            ...prev, 
+                            email: e.target.value 
+                          }))
+                        }
+                        required
+                        disabled={isRegistering}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Kata Sandi</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="Minimal 8 karakter"
+                        value={userFormData.password}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setUserFormData((prev: CreateUserInput) => ({ 
+                            ...prev, 
+                            password: e.target.value 
+                          }))
+                        }
+                        minLength={8}
+                        required
+                        disabled={isRegistering}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="role">Peran Pengguna</Label>
+                      <Select
+                        value={userFormData.role}
+                        onValueChange={(value: 'ADMIN' | 'CHILD' | 'DONOR' | 'STAFF') =>
+                          setUserFormData((prev: CreateUserInput) => ({ 
+                            ...prev, 
+                            role: value 
+                          }))
+                        }
+                        disabled={isRegistering}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Pilih peran pengguna" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ADMIN">
+                            <div className="flex items-center space-x-2">
+                              <span>🛡️</span>
+                              <span>Administrator</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="CHILD">
+                            <div className="flex items-center space-x-2">
+                              <span>👶</span>
+                              <span>Anak Asuh</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="DONOR">
+                            <div className="flex items-center space-x-2">
+                              <span>💝</span>
+                              <span>Donatur</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="STAFF">
+                            <div className="flex items-center space-x-2">
+                              <span>👥</span>
+                              <span>Pengurus Panti</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="flex justify-end space-x-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setIsRegistrationDialogOpen(false);
+                          setRegistrationMessage(null);
+                        }}
+                        disabled={isRegistering}
+                      >
+                        Batal
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isRegistering}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        {isRegistering ? (
+                          <span className="flex items-center space-x-2">
+                            <span className="animate-spin">⏳</span>
+                            <span>Mendaftarkan...</span>
+                          </span>
+                        ) : (
+                          <span className="flex items-center space-x-2">
+                            <span>✅</span>
+                            <span>Daftarkan Pengguna</span>
+                          </span>
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
+
+          {/* Management Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="cursor-pointer hover:shadow-md transition-shadow">
               <CardContent className="p-6 text-center">
